@@ -53,7 +53,7 @@ function App(){
       case 'history':return <><PageHeading eyebrow="NHÌN LẠI ĐỂ TIẾN XA HƠN" title="Lịch sử phỏng vấn" text="Mọi câu trả lời, nhận xét và bước tiến của bạn trên thiết bị này."/><History sessions={sessions} onSelect={selectSession} onStart={()=>startSetup()}/></>;
       case 'setup':return <Setup setup={setup} setSetup={setSetup} cv={cv} setCV={setCV} onCancel={()=>go('library')} onStart={async()=>{
         if(subscription==='Free' && metrics.monthly>=3){go('plans');setToast('Bạn đã dùng 3 buổi miễn phí trong tháng. Chọn gói để luyện tiếp.');return;}
-        const session={id:crypto.randomUUID(),startedAt:Date.now(),transcript:[],durationSeconds:0,setup:{...setup,cvText:cv?.text || '',cvName:cv?.name || ''}};
+        const session={id:crypto.randomUUID(),startedAt:Date.now(),reportPlan:subscription,transcript:[],durationSeconds:0,setup:{...setup,cvText:cv?.text || '',cvName:cv?.name || ''}};
         await saveSession(session);updateSession(session);setActiveId(session.id);persist('activeSession',session.id);persist('recentSetup',setup);go('room');
       }}/>;
       case 'room':return active && !active.completedAt?<Interview key={active.id} session={active} onSave={updateSession} onFinish={s=>{updateSession(s);go('results');}}/>:<Empty title="Chưa có buổi phỏng vấn đang diễn ra" action={<Button onClick={()=>startSetup()}>Tạo buổi phỏng vấn</Button>}/>;

@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "type": "module",
   "dependencies": {
+    "@mediapipe/tasks-vision": "0.10.11",
     "dotenv": "^17.2.1",
     "express": "^4.21.2",
     "mammoth": "^1.12.3",
@@ -15,7 +16,7 @@
     "start": "node scripts/build.mjs && node server.js",
     "dev": "node scripts/build.mjs && node server.js",
     "build": "node scripts/build.mjs",
-    "test": "node --test tests/domain.test.js tests/server.test.js",
+    "test": "node --test tests/domain.test.js tests/server.test.js tests/realtime.test.js tests/report-policy.test.js",
     "test:e2e": "playwright test",
     "test:ai": "node scripts/smoke-ai.mjs"
   },

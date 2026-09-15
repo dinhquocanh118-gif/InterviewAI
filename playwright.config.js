@@ -1,0 +1,2 @@
+import {defineConfig} from '@playwright/test';
+export default defineConfig({testDir:'./tests/browser',timeout:45000,workers:1,reporter:'list',use:{baseURL:'http://localhost:3001',channel:'chrome',headless:true,launchOptions:{args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']},viewport:{width:1440,height:1000},screenshot:'only-on-failure'},webServer:{command:'node server.js',env:{PORT:'3001'},url:'http://localhost:3001/api/health',reuseExistingServer:true}});

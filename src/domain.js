@@ -8,9 +8,9 @@ export const library = [
 ];
 export const defaultSetup = { role:'', industry:'Công nghệ thông tin', level:'Mới tốt nghiệp', jd:'', skills:'', experience:'', language:'vi', duration:15, difficulty:'Vừa sức' };
 export const plans = [
-  {name:'Free', price:'0', description:'Bước khởi đầu tự tin hơn.', features:['3 buổi phỏng vấn / tháng','Nhận xét AI cơ bản','Lịch sử và tiến độ trên thiết bị']},
-  {name:'Premium', price:'99.000', description:'Luyện tập đều đặn. Tiến bộ mỗi ngày.', features:['Phỏng vấn không giới hạn','Nhận xét AI chi tiết','Phân tích nội dung CV','Lịch sử và theo dõi tiến độ']},
-  {name:'Pro', price:'199.000', description:'Sẵn sàng cho mục tiêu lớn hơn.', features:['Toàn bộ tính năng Premium','Phân tích chuyên sâu','Phỏng vấn theo ngành nghề','Báo cáo tiến bộ nâng cao']},
+  {name:'Free', price:'0', description:'Bước khởi đầu tự tin hơn.', features:['3 buổi phỏng vấn / tháng','Điểm tổng quan và góp ý cơ bản','1 bước luyện tiếp','Lịch sử trên thiết bị']},
+  {name:'Premium', price:'99.000', description:'Luyện tập đều đặn. Tiến bộ mỗi ngày.', features:['Phỏng vấn không giới hạn','Góp ý chi tiết từng câu hỏi','Gợi ý câu trả lời tốt hơn','Các bước cải thiện ưu tiên']},
+  {name:'Pro', price:'199.000', description:'Sẵn sàng cho mục tiêu lớn hơn.', features:['Toàn bộ tính năng Premium','Đối chiếu năng lực với vị trí và JD','Phân tích bằng chứng còn thiếu','Kế hoạch luyện tập 7 ngày']},
 ];
 export function score(session) {
   const values = Object.values(session?.evaluation?.scores || {}).filter(Number.isFinite);
