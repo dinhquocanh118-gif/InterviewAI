@@ -1,0 +1,31 @@
+{
+  "name": "interviewai-prototype",
+  "version": "2.0.0",
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "express": "^4.21.2",
+    "mammoth": "^1.12.3",
+    "openai": "^5.16.0",
+    "pdf-parse": "^1.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "scripts": {
+    "start": "node scripts/build.mjs && node server.js",
+    "dev": "node scripts/build.mjs && node server.js",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/domain.test.js tests/server.test.js",
+    "test:e2e": "playwright test",
+    "test:ai": "node scripts/smoke-ai.mjs"
+  },
+  "description": "Prototype InterviewAI tieng Viet, luu lich su cuc bo va phong van AI",
+  "main": "server.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "esbuild": "^0.28.2"
+  }
+}
