@@ -6,7 +6,16 @@ export async function mockAI(page,{failEvaluation=false,failQuestion=false,trans
     const original=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia=async constraints=>{
       if((constraints.video&&denyCamera)||(constraints.audio&&denyMic))throw new DOMException('denied','NotAllowedError');
-      const stream=await original(constraints);window.testStreams.push(stream);return stream;
+      let stream;
+      if(constraints.video){
+        // Chrome's fake Windows camera intermittently disappears between contexts.
+        // Feed real canvas video tracks through the actual camera/segmentation pipeline.
+        const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;
+        const ctx=canvas.getContext('2d');const draw=()=>{ctx.fillStyle='#c6bfda';ctx.fillRect(0,0,640,360);ctx.fillStyle='#7d7198';ctx.fillRect(250,80,140,280);};
+        draw();stream=canvas.captureStream(15);const interval=setInterval(draw,66);
+        for(const track of stream.getTracks()){const stop=track.stop.bind(track);track.stop=()=>{clearInterval(interval);stop();};}
+      }else stream=await original(constraints);
+      window.testStreams.push(stream);return stream;
     };
     window.RTCPeerConnection=class{
       constructor(){window.rtcConnections.push(this);this.restored=[];this.turn=0;this.connectionState='new';}

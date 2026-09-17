@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RealtimeInterview} from '../src/realtime.js';
+import {paceHint} from '../src/speech-feedback.js';
+
+test('pace feedback distinguishes language and ignores unreliable or interrupted turns',()=>{
+  const message={text:Array(40).fill('test').join(' '),speechDurationSeconds:10};
+  assert.ok(paceHint(message,'en'));
+  assert.equal(paceHint(message,'vi'),'');
+  assert.ok(paceHint({...message,speechDurationSeconds:5},'vi'));
+  for(const changes of [{speechDurationSeconds:undefined},{speechDurationSeconds:1},{pending:true},{transcriptionError:true}])assert.equal(paceHint({...message,...changes},'en'),'');
+});
 function controller(){
   const sent=[],statuses=[];let latest=[];
   const client=new RealtimeInterview({setup:{},onMessages:m=>latest=m,onStatus:s=>statuses.push(s),onError:()=>{}});

@@ -1,7 +1,7 @@
 // One controller per mounted interview; media and event lifetime never outlive it.
 export class RealtimeInterview {
-  constructor({setup,messages=[],onMessages,onStatus,onError,onAudioBlocked}) {
-    Object.assign(this,{setup,onMessages,onStatus,onError,onAudioBlocked});
+  constructor({setup,messages=[],onMessages,onStatus,onError,onAudioBlocked,onStream}) {
+    Object.assign(this,{setup,onMessages,onStatus,onError,onAudioBlocked,onStream});
     this.messages=messages.map(m=>m.pending?{...m,pending:false,transcriptionError:true,text:m.role==='user'?'[Lượt nói trước bị gián đoạn, chưa có bản chép lời]':m.text || '[Câu hỏi bị gián đoạn]'}:m);
     this.pending=new Map();this.unbound=[];this.items=new Map();this.seen=new Set();this.timers=new Set();this.status='offline';
   }
@@ -16,6 +16,7 @@ export class RealtimeInterview {
       const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
       if(this.closed){stream.getTracks().forEach(t=>t.stop());return;}
       this.stream=stream;this.track=stream.getAudioTracks()[0];this.track.enabled=false;
+      this.onStream?.(stream);
       this.pc=new RTCPeerConnection();this.audio=new Audio();this.audio.autoplay=true;this.audio.muted=!!this.muted;
       this.pc.ontrack=e=>{this.audio.srcObject=e.streams[0];this.audio.play().catch(()=>this.onAudioBlocked?.());};
       this.pc.addTrack(this.track,stream);
@@ -81,7 +82,7 @@ export class RealtimeInterview {
     try{
       if(cancel || Date.now()-this.startedAt<250){this.send({type:'input_audio_buffer.clear'});this.state('ready');return;}
       const id=crypto.randomUUID();this.unbound.push(id);
-      this.messages.push({id,role:'user',text:'Đang chuyển giọng nói thành văn bản…',pending:true,at:Date.now()});
+      this.messages.push({id,role:'user',text:'Đang chuyển giọng nói thành văn bản…',pending:true,at:Date.now(),speechDurationSeconds:(Date.now()-this.startedAt)/1000});
       this.pending.set(id,this.later(()=>{
         this.pending.delete(id);this.messages=this.messages.map(m=>m.id===id?{...m,pending:false,transcriptionError:true,text:'[Không nhận được bản chép lời — lượt này không được chấm]'}:m);this.publish();
         this.onError('Chưa nhận được bản chép lời của một lượt nói. Hãy nói lại để có đủ nội dung đánh giá.');
@@ -93,6 +94,7 @@ export class RealtimeInterview {
   close(){
     this.closed=true;this.controller?.abort();for(const id of this.timers)clearTimeout(id);this.timers.clear();
     if(this.track)this.track.enabled=false;this.stream?.getTracks().forEach(t=>t.stop());
+    this.onStream?.(null);
     if(this.dc){this.dc.onmessage=this.dc.onopen=this.dc.onclose=null;this.dc.close();}
     if(this.pc){this.pc.ontrack=this.pc.onconnectionstatechange=null;this.pc.close();}
     if(this.audio){this.audio.pause();this.audio.srcObject=null;}

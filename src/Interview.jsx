@@ -3,13 +3,17 @@ import {Button,Icon,ErrorNote,timer} from './ui.jsx';
 import {saveSession} from './storage.js';
 import {RealtimeInterview} from './realtime.js';
 import Camera from './Camera.jsx';
+import {VirtualHR,useSpeakingMeter} from './VirtualStudio.jsx';
+import {paceHint} from './speech-feedback.js';
 
 export default function Interview({session,onFinish,onSave}){
+  const [micStream,setMicStream]=useState(null);
   const [messages,setMessages]=useState(session.transcript || []),[status,setStatus]=useState('connecting');
   const [elapsed,setElapsed]=useState(session.durationSeconds || 0),[recordSeconds,setRecordSeconds]=useState(0);
   const [error,setError]=useState(''),[saveError,setSaveError]=useState(''),[muted,setMuted]=useState(false),[audioBlocked,setAudioBlocked]=useState(false),[finishing,setFinishing]=useState(false);
   const state=useRef({alive:true,session,messages:session.transcript || [],elapsed:session.durationSeconds || 0,queue:Promise.resolve()});
-  const engine=useRef(null),end=useRef(null);state.current.elapsed=elapsed;
+  const engine=useRef(null),transcript=useRef(null);state.current.elapsed=elapsed;
+  const meter=useSpeakingMeter(micStream,status==='listening');
   function persist(nextMessages,updates={}){
     const r=state.current;
     // Serialize writes so late transcription cannot overwrite newer messages.
@@ -26,21 +30,27 @@ export default function Interview({session,onFinish,onSave}){
     const client=new RealtimeInterview({setup:session.setup,messages:state.current.messages,
       onMessages:next=>{if(!state.current.alive)return;state.current.messages=next;setMessages(next);persist(next);},
       onStatus:next=>{if(state.current.alive)setStatus(next);},onError:message=>{if(state.current.alive)setError(message);},
-      onAudioBlocked:()=>{if(state.current.alive)setAudioBlocked(true);}});
+      onAudioBlocked:()=>{if(state.current.alive)setAudioBlocked(true);},onStream:stream=>{if(state.current.alive)setMicStream(stream);}});
     engine.current=client;client.setMuted(muted);state.current.messages=client.messages;setMessages(client.messages);client.connect();
   }
   useEffect(()=>{
     state.current.alive=true;connect();
     const interval=setInterval(()=>setElapsed(v=>v+1),1000),saveInterval=setInterval(()=>persist(state.current.messages),10000);
-    const editable=target=>target?.closest?.('input,textarea,select,[contenteditable="true"],button:not([data-push-talk])');
-    const down=e=>{if(e.code==='Space' && !e.repeat && !editable(e.target)){e.preventDefault();engine.current?.start();}};
-    const up=e=>{if(e.code==='Space' && engine.current?.status==='listening'){e.preventDefault();engine.current.stop();}};
-    const cancel=()=>engine.current?.stop(true),hidden=()=>{if(document.hidden)cancel();},warn=e=>{e.preventDefault();e.returnValue='';};
+    const editable=target=>target?.isContentEditable||target?.closest?.('input,textarea,select,button:not([data-push-talk]),a[href],[role="button"]');
+    let spaceHeld=false;
+    const down=e=>{
+      if(e.code!=='Space'||(!spaceHeld&&editable(e.target)))return;
+      // Suppress native scrolling on every repeat while starting only once.
+      e.preventDefault();
+      if(!e.repeat&&!spaceHeld){spaceHeld=true;engine.current?.start();}
+    };
+    const up=e=>{if(e.code==='Space'&&spaceHeld){e.preventDefault();spaceHeld=false;engine.current?.stop();}};
+    const cancel=()=>{spaceHeld=false;engine.current?.stop(true);},hidden=()=>{if(document.hidden)cancel();},warn=e=>{e.preventDefault();e.returnValue='';};
     window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',cancel);window.addEventListener('beforeunload',warn);document.addEventListener('visibilitychange',hidden);
     return()=>{state.current.alive=false;engine.current?.close();clearInterval(interval);clearInterval(saveInterval);window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',cancel);window.removeEventListener('beforeunload',warn);document.removeEventListener('visibilitychange',hidden);};
   },[]);
   useEffect(()=>{if(status!=='listening'){setRecordSeconds(0);return;}const id=setInterval(()=>setRecordSeconds(Math.floor((Date.now()-engine.current.startedAt)/1000)),100);return()=>clearInterval(id);},[status]);
-  useEffect(()=>{end.current?.scrollIntoView({block:'nearest'});},[messages]);
+  useEffect(()=>{const panel=transcript.current;if(panel)panel.scrollTop=panel.scrollHeight;},[messages]);
   async function finish(){
     if(finishing || engine.current?.status==='listening' || messages.some(m=>m.pending))return;
     setFinishing(true);engine.current?.close();
@@ -57,7 +67,7 @@ export default function Interview({session,onFinish,onSave}){
     <ErrorNote>{saveError}</ErrorNote>{saveError && <Button kind="secondary" onClick={()=>persist(state.current.messages).catch(()=>{})}>Thử lưu hội thoại</Button>}
     <div className="room-grid realtime-room"><section className="interviewer card">
       <div className="row between"><span className="pill">Phỏng vấn trực tiếp với AI</span><button className="icon-button" aria-label={muted?'Bật giọng AI':'Tắt giọng AI'} onClick={()=>{engine.current?.setMuted(!muted);setMuted(!muted);}}><Icon name="volume"/>{muted && '×'}</button></div>
-      <div className={`ai-orb ${status}`}><Icon size={56}/></div><div className={`live-status ${status}`} aria-live="polite"><i/>{({offline:'Chưa kết nối',connecting:'Đang kết nối micro và AI',thinking:'AI đang suy nghĩ',speaking:'AI đang nói',ready:'Sẵn sàng nghe bạn',listening:'Đang lắng nghe'})[status]}</div>
+      <VirtualHR speaking={status==='speaking'} muted={muted||audioBlocked}/><div className={`live-status ${status}`} aria-live="polite"><i/>{({offline:'Chưa kết nối',connecting:'Đang kết nối micro và AI',thinking:'AI đang suy nghĩ',speaking:'AI đang nói',ready:'Sẵn sàng nghe bạn',listening:'Đang lắng nghe'})[status]}</div>
       <p className="tiny">Giọng nói được tạo bởi AI</p><h3 className="current-question">{question || 'AI sẽ chào và đặt câu hỏi khi kết nối hoàn tất.'}</h3><ErrorNote>{error}</ErrorNote>
       {status==='offline' && <Button kind="secondary" onClick={connect} disabled={finishing}>Kết nối lại</Button>}
       {audioBlocked && <Button kind="secondary" onClick={async()=>{try{await engine.current.audio.play();setAudioBlocked(false);}catch{setError('Trình duyệt chưa cho phát âm thanh. Hãy kiểm tra quyền âm thanh.');}}}>Phát giọng AI</Button>}
@@ -68,7 +78,7 @@ export default function Interview({session,onFinish,onSave}){
         {status==='listening'?`Đang ghi ${timer(recordSeconds)} · Thả để gửi`:'Giữ Space hoặc giữ nút để nói'}</Button>
         <p className="muted">Giữ để trả lời, thả để AI nghe và hỏi tiếp. Mỗi lần nói tối đa 2 phút.</p><small>Khoảng 6–8 câu chính, có câu hỏi đào sâu theo câu trả lời của bạn.</small>
       </div>
-    </section><aside className="room-side"><Camera/><section className="card transcript-panel"><div className="row between"><h3>Bản ghi hội thoại</h3><span className="pill">{answers} câu trả lời</span></div><div className="transcript">{messages.map((m,i)=><div key={m.id || i} className={`message ${m.role}`}><strong>{m.role==='bot'?'InterviewAI':'Bạn'}</strong><p>{m.text}</p>{m.transcriptionError && <small>Lượt thiếu nội dung không được chấm.</small>}</div>)}<div ref={end}/></div>
+    </section><aside className="room-side"><Camera meter={meter} listening={status==='listening'} pace={paceHint([...messages].reverse().find(m=>m.role==='user'),session.setup.language)}/><section className="card transcript-panel"><div className="row between"><h3>Bản ghi hội thoại</h3><span className="pill">{answers} câu trả lời</span></div><div className="transcript" ref={transcript}>{messages.map((m,i)=><div key={m.id || i} className={`message ${m.role}`}><strong>{m.role==='bot'?'InterviewAI':'Bạn'}</strong><p>{m.text}</p>{m.transcriptionError && <small>Lượt thiếu nội dung không được chấm.</small>}</div>)}</div>
       <Button kind="danger-soft" onClick={finish} disabled={finishing || pending || !answers || ['connecting','thinking','speaking','listening'].includes(status)}>{finishing?'Đang lưu buổi luyện…':'Kết thúc phỏng vấn'}</Button><small>{pending?'Đang chờ hoàn tất bản ghi hội thoại…':'Buổi luyện được lưu trên thiết bị này.'}</small></section></aside></div>
   </div>;
 }
